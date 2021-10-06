@@ -209,7 +209,7 @@ ngx::cve() {
 		 fi
 	done <<< $CVELIST
 	
-	if [[ $CVEFOUND -eq 0 ]]; then echo "   ** Nothing found **  "; fi
+	if [[ $CVEFOUND -eq 0 ]] && [[ $RUNLEVEL -gt 9 ]]; then echo "   ** Nothing found **  "; fi
 }
 
 ngx::module_check() {
@@ -219,7 +219,7 @@ ngx::module_check() {
 		   [[ $RUNLEVEL == 99 ]] && echo ${COLGREEN}"Found $m"${COLRES}
 		   ((++FOUND))
 		else
-		   if [[ $MNFOUND -eq 0 ]]; then echo "  - Found unsupoported modules: "; fi
+		   if [[ $MNFOUND -eq 0 ]] && [[ $RUNLEVEL -gt 9 ]]; then echo "  - Found unsupoported modules: "; fi
 		     [[ $RUNLEVEL -gt 9 ]] && echo ${COLRED}"    - $m"${COLRES}
 		     ((++MNFOUND))
 		fi
@@ -232,7 +232,7 @@ ngx::directive_check() {
 		if grep -Fxq "$x" alldirs.txt; then
 			[[ $RUNLEVEL == 99 ]] && echo ${COLGREEN}"Found $x ${CONFIGURATION[$x]}x${COLRES}" ;((++FOUND))
 		else
-			if [[ $NFOUND -eq 0 ]]; then echo "  - Found unsupoported directives: "; fi
+			if [[ $NFOUND -eq 0 ]] && [[ $RUNLEVEL -gt 9 ]]; then echo "  - Found unsupoported directives: "; fi
 			[[ $RUNLEVEL -gt 9 ]] && echo ${COLRED}"    - $x (x${CONFIGURATION[$x]})${COLRES}" ;((++NFOUND))
 		fi
 	done
@@ -263,9 +263,11 @@ main::exitcode() {
 # NFOUND=0;
 # CVEFOUND=0;
 # MNFOUND=0;
+ if [[ $RUNLEVEL -gt 9 ]]; then
   echo ""
   echo "  Summary"
   echo "  -------"
+ fi 
   if [ $EXITCODE -eq 0 ]; then
  	if [[ $CVEFOUND -gt 0 ]]; then
  	  EXITCODE=10
@@ -356,11 +358,13 @@ main::run() {
 	[[ $RUNLEVEL == 99 ]] && ngx::directives_verbose
 	ngx::directive_check
 	ngx::module_check
-	echo ""
-    echo "  Security"
-	echo "  --------"
-	echo ""
-	ngx::cve
+    if [[ $RUNLEVEL -gt 9 ]]; then
+	  echo ""
+      echo "  Security"
+	  echo "  --------"
+	  echo ""
+	fi
+    ngx::cve
 
 }
 
@@ -418,4 +422,3 @@ awk = parseawk.replace('\';','\'"\'"\';')
 print (f"#!/usr/bin/env bash\n{bash_vars}\nCVELIST='{s}'\nBUILD='{build}'\n\nALLMODULES='{m}'\n\nALLDIRECTIVES='{de}'\n\n{bash_main_functions}\n")
 print(bash_awk,awk,bash_awk_end)
 print(f"{bash_end}")
-
