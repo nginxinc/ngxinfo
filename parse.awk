@@ -51,15 +51,15 @@ if ($1 == "log_format") {
 }
 #parsing a list
 #Check upstreams again (removed upstream)
-if ($1 == "map" || $1 == "types" || $1 == "content_by_lua_block" ) {
+if ($1 == "map" || $1 == "types" || $1 == "content_by_lua_block" ||  $1 == "return" ) {
     print $0 > "config.tmp"
-    print "Its a map or upstream --> " $0;
+    print "Its a config-block --> " $0;
     mapopen = 1;
-    print "Openmap is now  " mapopen;
+    print "OpenConfigBlock is now  " mapopen;
 }
 else {
     if ($1 == "}" && mapopen == 1) {
-        print "Closing block for map / upstream.";
+        print "Closing config-block";
         mapopen = 0;
     } else {
          if (mapopen == 1) {
