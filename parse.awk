@@ -1,7 +1,23 @@
 {
-if (substr($0,0,1) == "#") {
+if (match($0,/^(\s+#|#)(.*)/) != 0) {
    print "Line-Comment skipping..."$0;
    next
+}
+
+os = $0
+ose = substr($0, length($0))
+
+if (ose == ";") {
+   if (gsub(";", "::", os) != 1) {
+     $0 = os ";"
+   }
+}
+
+if (ose != ";") {
+  str = substr($0, index($0, ";")+1)
+  if (match(str,/^(\s+#|#)(.*)/) != 0) {
+      $0 = substr($0, 0, index($0, ";"))
+  }
 }
 
 #Edgecase Handline... 
@@ -44,7 +60,7 @@ if ($1 == "log_format") {
     }
     else {
       print "Logformat?? good!" $0 "----" substr($0, length($0), 1);
-      print $0 > "config.tmp"
+      print $0 ending > "config.tmp"
       logblock = 1;
       next
     } 
@@ -52,7 +68,7 @@ if ($1 == "log_format") {
 #parsing a list
 #Check upstreams again (removed upstream)
 if ($1 == "map" || $1 == "types" || $1 == "content_by_lua_block" ||  $1 == "return" ) {
-    print $0 > "config.tmp"
+    print $0 ending > "config.tmp"
     print "Its a config-block --> " $0;
     mapopen = 1;
     print "OpenConfigBlock is now  " mapopen;
@@ -67,7 +83,7 @@ else {
          } else {
                   print "Regular NGINX config: " $0;
                   #Write non-map and upstream to tmp-file
-                  print $0 > "config.tmp"
+                  print $0 ending > "config.tmp"
          }
     }
   } 
