@@ -74,6 +74,9 @@ bash_awk_end = """
 """
 
 bash_vars = r"""
+## build.py (c) NGINX, Inc. [10/6/2021] Timo Stark <t.stark@f5.com>
+## Build script for nginxinfo v0.0.1 alpha
+
 COLGREEN=$(tput setaf 2)
 COLYELLOW=$(tput setaf 3)
 COLRED=$(tput setaf 1)
@@ -184,6 +187,7 @@ ngx::directives_verbose() {
 }
 
 ngx::cve() {
+    
 	while read line; do
 		 VULNERABLE=$(echo $line |awk '{ split($0,a,";"); print a[2]}')
 		 GOOD=$(echo $line |awk '{ split($0,a,";"); print a[3] }' | tr -d '+')
@@ -193,6 +197,7 @@ ngx::cve() {
 		   if [ `echo $VULNERABLE"-"$NGXVERSION | tr '-' '\n' | sort -V | head -1` == $NGXVERSION ]; then
 			  continue
 		   fi
+           SKIP=0
 		   #checking the good values
 		   MESSAGE="CVE Found $CVE"
 		   IFS=', ' read -r -a array <<< "$GOOD"
@@ -201,11 +206,12 @@ ngx::cve() {
 		   do
 			  if [ `echo "${array[$i]}-$NGXVERSION" |tr '-' '\n' | sort -Vr | head -1` == $NGXVERSION ]; then
 				MESSAGE=""
+                SKIP=1
 			  fi
 		   done
 		   if [[ $CVEFOUND -eq 0 ]]; then echo "   nginx-$NGXVERSION is affected by: "; fi
 		   ((++CVEFOUND))
-		   [[ $RUNLEVEL -gt 9 ]] && echo "    - ${COLYELLOW}$MESSAGE${COLRES}"
+		   if [[ $RUNLEVEL -gt 9 ]] && [[ $SKIP -eq 0 ]]; then echo "    - ${COLYELLOW}$MESSAGE${COLRES}"; fi
 		 fi
 	done <<< $CVELIST
 	
@@ -213,17 +219,19 @@ ngx::cve() {
 }
 
 ngx::module_check() {
+  if [ -f "./module-config.tmp" ]; then
 	echo "$ALLMODULES" > allmodules.txt
 	while read m; do
-	if grep -Fxq "${m##*/}" allmodules.txt; then
+	if grep -Fqx "${m##*/}" allmodules.txt; then
 		   [[ $RUNLEVEL == 99 ]] && echo ${COLGREEN}"Found $m"${COLRES}
 		   ((++FOUND))
 		else
 		   if [[ $MNFOUND -eq 0 ]] && [[ $RUNLEVEL -gt 9 ]]; then echo "  - Found unsupoported modules: "; fi
-		     [[ $RUNLEVEL -gt 9 ]] && echo ${COLRED}"    - $m"${COLRES}
+		     [[ $RUNLEVEL -gt 9 ]] && echo ${COLRED}"    - ${m##*/}"${COLRES}
 		     ((++MNFOUND))
 		fi
-	done < module-config.tmp
+	done < module-config.tmp | tr -d '"' | tr -d "'" | tr -d ";"
+  fi  
 }
 
 ngx::directive_check() {
@@ -236,6 +244,7 @@ ngx::directive_check() {
 			[[ $RUNLEVEL -gt 9 ]] && echo ${COLRED}"    - $x (x${CONFIGURATION[$x]})${COLRES}" ;((++NFOUND))
 		fi
 	done
+    if [[ $RUNLEVEL -gt 9 ]] && [[ $NFOUND -eq 0 ]]; then echo "${COLGREEN}  No unknown directives found. ${COLRES}"; fi
 }
 
 sys::net() {
@@ -268,6 +277,7 @@ main::exitcode() {
   echo "  Summary"
   echo "  -------"
  fi 
+  
   if [ $EXITCODE -eq 0 ]; then
  	if [[ $CVEFOUND -gt 0 ]]; then
  	  EXITCODE=10
@@ -280,8 +290,11 @@ main::exitcode() {
   else
  	EXITCODE=99
   fi
-   
+
   case $EXITCODE in
+    0)
+     if [[ $RUNLEVEL -gt 9 ]]; then echo "${COLGREEN}  Congratulations! No warnings or errors found! You are good upgrading to NGINX Plus.${COLRES}"; fi
+     ;;
    10)
      if [[ $RUNLEVEL -gt 9 ]]; then echo "${COLYELLOW} There are warnings but you are good upgrading to NGINX Plus. Congratulations!"; fi
    ;;
@@ -319,9 +332,8 @@ main::run() {
 		echo "  NGINX Version"
 		echo "  -------------"
 		echo ""
-		echo "  - NGINX version: ${NGINXINFO[build]}"
+		echo "  - NGINX version: $NGXVERSION"
 		echo "  - OpenSSL version: $OPENSSLVERSION"
-		echo "  - Proveance: ${HOSTINFO[NAME]}"
 		echo ""
 		
 		echo "  Configuration"

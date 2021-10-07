@@ -65,3 +65,9 @@ Currently we support 3 runtime modes.
   -------
   Do not upgrade to NGINX Plus without first discussing this project with your F5/NGINX representative
 ```
+
+## ToDos
+
+- Proveance check. Find the way NGINX was installed.
+- Find nginx binary if not available system wide.
+- Scanning a `nginx -T` output and print a report.
