@@ -264,9 +264,8 @@ sys::net() {
 
 main::exitcode() {
 # 0 = OK
-# 10 = WARNING
-# 50 = ERRORS
-# 99 = EXCEPTION
+# 1 = WARNING
+# 2 = ERRORS
 # 
 # FOUND=0;
 # NFOUND=0;
@@ -280,25 +279,25 @@ main::exitcode() {
   
   if [ $EXITCODE -eq 0 ]; then
  	if [[ $CVEFOUND -gt 0 ]]; then
- 	  EXITCODE=10
+ 	  EXITCODE=1
  	fi
  	
     if [[ $NFOUND -gt 0 ]] || [[ $MNFOUND -gt 0 ]]; then
  	 
- 	  EXITCODE=50
+ 	  EXITCODE=2
  	fi	
   else
- 	EXITCODE=99
+ 	EXITCODE=2
   fi
 
   case $EXITCODE in
     0)
      if [[ $RUNLEVEL -gt 9 ]]; then echo "${COLGREEN}  Congratulations! No warnings or errors found! You are good upgrading to NGINX Plus.${COLRES}"; fi
      ;;
-   10)
+   1)
      if [[ $RUNLEVEL -gt 9 ]]; then echo "${COLYELLOW} There are warnings but you are good upgrading to NGINX Plus. Congratulations!"; fi
    ;;
-   50)
+   2)
     if [[ $RUNLEVEL -gt 9 ]]; then echo "${COLRED}  Do not upgrade${COLRES} to NGINX Plus without first discussing this project with your F5/NGINX representative"; fi
    ;;
    *)
