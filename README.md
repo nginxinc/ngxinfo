@@ -68,6 +68,11 @@ Currently we support 3 runtime modes.
 
 ## ToDos
 
-- Proveance check. Find the way NGINX was installed.
+- What is the provenance of the NGINX software on the system?
+- More NGINX Version Information (source branch, release date)
 - Find nginx binary if not available system wide.
+- Calculate an Upgrade-Score based on different information(Operating system, unknown directives and / or modules)
 - Scanning a `nginx -T` output and print a report.
+- Handle runtime information from /proc/PID/cmdline instead of `nginx -V`
+- Printing CVE long text description
+- Detect unsupported builds and modules (dynamic and static)
