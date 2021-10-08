@@ -69,6 +69,8 @@ Currently we support 3 runtime modes.
 ## ToDos
 
 - What is the provenance of the NGINX software on the system?
+- Create temp-files in /tmp/ directory.
+- Remove Networkconfiguration (Open-Ports)
 - More NGINX Version Information (source branch, release date)
 - Find nginx binary if not available system wide.
 - Calculate an Upgrade-Score based on different information(Operating system, unknown directives and / or modules)
