@@ -332,9 +332,6 @@ main::exitcode() {
 }
 
 main::run() {
-	
-	NGXPID=$(cat ${NGINXINFO[pid-path]})
-	
 	if [[ $RUNLEVEL -eq 99 ]]; then printf "%s\n" "${!NGINXINFO[@]}" "${NGINXINFO[@]}" | pr -2t; fi
 	if [[ $RUNLEVEL -eq 99 ]]; then printf "%s\n" "${!HOSTINFO[@]}" "${HOSTINFO[@]}" | pr -2t; fi
 	
