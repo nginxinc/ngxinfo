@@ -50,7 +50,7 @@ if (logblock == 1 ) {
 
 
 if ($1 == "load_module") {
-  print $2 > "module-config.tmp"
+  print $2 > "/tmp/module-config.tmp"
 }
 
 if ($1 == "log_format") {
@@ -60,7 +60,7 @@ if ($1 == "log_format") {
     }
     else {
       print "Logformat?? good!" $0 "----" substr($0, length($0), 1);
-      print $0 > "config.tmp"
+      print $0 > "/tmp/config.tmp"
       logblock = 1;
       next
     } 
@@ -68,7 +68,7 @@ if ($1 == "log_format") {
 #parsing a list
 #Check upstreams again (removed upstream)
 if ($1 == "map" || $1 == "types" || $1 == "content_by_lua_block" ||  $1 == "return" || $1 == "split_clients" || $1 == "match" || $1 == "geo" ) {
-    print $0 > "config.tmp"
+    print $0 > "/tmp/config.tmp"
     print "Its a config-block --> " $0;
     mapopen = 1;
     print "OpenConfigBlock is now  " mapopen;
@@ -82,7 +82,7 @@ else {
              print "InBlockRow: " $0;
          } else {
                   print "Regular NGINX config: " $0;
-                  print $0 > "config.tmp"
+                  print $0 > "/tmp/config.tmp"
          }
     }
   } 
