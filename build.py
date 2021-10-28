@@ -84,8 +84,7 @@ COLRES=$(tput sgr0)
 
 NGXV=""
 NGINXIFOVERSION="nginxinfo v0.1 alpha"
-#NGXVERSION=$(nginx -v 2>&1 |awk 'match($0, /[0-9]+(\.[0-9]+)+/, a) {print a[0]}')
-NGXVERSION="1.14.1"
+NGXVERSION=$(nginx -v 2>&1 |awk 'match($0, /[0-9]+(\.[0-9]+)+/, a) {print a[0]}')
 OPENSSLVERSION=$(openssl version)
 HOSTINFORMATION=$(cat /etc/os-release | tr '\n' '^' | tr -d '"')
 NGXMAINCMD=$(ps -axo pid,cmd | grep '[n]ginx: master process' | awk '{print $5}')
@@ -332,9 +331,6 @@ main::exitcode() {
 }
 
 main::run() {
-	
-	NGXPID=$(cat ${NGINXINFO[pid-path]})
-	
 	if [[ $RUNLEVEL -eq 99 ]]; then printf "%s\n" "${!NGINXINFO[@]}" "${NGINXINFO[@]}" | pr -2t; fi
 	if [[ $RUNLEVEL -eq 99 ]]; then printf "%s\n" "${!HOSTINFO[@]}" "${HOSTINFO[@]}" | pr -2t; fi
 	
