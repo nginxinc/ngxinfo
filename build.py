@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 ## build.py (c) NGINX, Inc. [10/6/2021] Timo Stark <t.stark@f5.com>
-## Build script for nginxinfo v0.0.1 alpha
+## Build script for nginxinfo v0.0.2 alpha
 
 import xml.etree.ElementTree as ET
 import requests
@@ -24,12 +24,12 @@ with open('modules.zip', 'wb') as mfile:
 
 
 with zipfile.ZipFile('modules.zip', 'r') as mzip:
-  mzip.extractall('./modules')
+  mzip.extractall('/tmp/modules')
  
 
 m = ""
 
-for path in Path('./modules').rglob('Makefile.module*'):
+for path in Path('/tmp/modules').rglob('Makefile.module*'):
   with open(f"{path.parent}/{path.name}", 'r') as mf:
        for line in mf:
          if re.search("load_module", line):
@@ -69,7 +69,7 @@ ngx::parse_configuration() {
 
 bash_awk_end = """
 '
-   [[ $RUNLEVEL == 99 ]] && awk "$FUNCTION" config1.tmp || awk "$FUNCTION" config1.tmp > /dev/null 2>&1
+   [[ $RUNLEVEL == 99 ]] && awk "$FUNCTION" /tmp/config1.tmp || awk "$FUNCTION" /tmp/config1.tmp > /dev/null 2>&1
 }
 """
 
@@ -84,9 +84,13 @@ COLRES=$(tput sgr0)
 
 NGXV=""
 NGINXIFOVERSION="nginxinfo v0.1 alpha"
-NGXVERSION=$(nginx -v 2>&1 |awk 'match($0, /[0-9]+(\.[0-9]+)+/, a) {print a[0]}')
+#NGXVERSION=$(nginx -v 2>&1 |awk 'match($0, /[0-9]+(\.[0-9]+)+/, a) {print a[0]}')
+NGXVERSION="1.14.1"
 OPENSSLVERSION=$(openssl version)
 HOSTINFORMATION=$(cat /etc/os-release | tr '\n' '^' | tr -d '"')
+NGXMAINCMD=$(ps -axo pid,cmd | grep '[n]ginx: master process' | awk '{print $5}')
+NGXMAINPID=$(ps -axo pid,cmd | grep '[n]ginx: master process' | awk '{print $4}')
+WHICHNGX=$(which nginx 2>&1)
 NGXRUNSTATE=1
 DIRERRORCNT=1
 RUNLEVEL=""
@@ -104,12 +108,44 @@ declare -A CONFIGURATION
 declare -A CVES
 
 main::preflight() {
-  #is NGINX in the system path?
-  NGXV=$(nginx -V 2>&1)
-  if [ $? -ne 0 ]; then
-    echo "The NGINX binary wasn't found. Exiting!";
-	exit 99
-  fi
+	if [[ $(ps -ax | grep '[n]ginx: master process' | wc -l) -gt 1 ]]; then
+	  echo "${COLRED} Multiple NGINX master processes detected. Looks like you are running multiple instances?! ERROR ${COLRES}";
+	  exit 99	
+	fi
+
+	if [ "$WHICHNGX" != "/usr/sbin/nginx" ] && [ "$WHICHNGX" != "/usr/local/sbin/nginx" ]; then
+	  echo "${COLYELLOW} NGINX binary found in non-standard Path or not found! ${COLRES}";
+	fi
+	
+	if [ $NGXMAINCMD ]; then 
+		NGXBINARY=$NGXMAINCMD
+		NGXV=$($NGXMAINCMD -V 2>&1)
+	else
+		echo "${COLYELLOW}  NGINX not running. Using binary from system path. ${COLRES}";
+		NGXBINARY=$WHICHNGX
+		NGXV=$($WHICHNGX -V 2>&1)
+	fi
+}
+
+
+ngx::provenance() {
+	NGXREPO=$(find /etc/yum* /etc/apt /etc/apk -type f -exec grep -H nginx\.com/packages/ {} \; 2>&1 | grep -c ^/)
+	NGXPCKVENDOR="N.A."
+	if [ $NGXREPO -gt 0 ]; then
+		NGXPCKVENDOR="NGINX Inc."
+	else
+		case "${HOSTINFO[ID]}" in
+			"centos" | "rhel" | "fedora")
+			NGXPCKVENDOR=$(rpm -q --info nginx | grep Vendor | awk '{print $NF}')
+			;;
+			"ubuntu" | "debian")
+			NGXPCKVENDOR=$(apt show nginx 2> /dev/null | grep Origin: | awk '{print $NF}')
+			;;
+			*)
+			NGXPCKVENDOR="OS-Package not found!"
+			;;
+		esac
+	fi	
 }
 
 
@@ -159,22 +195,22 @@ ngx::finder() {
 	configinc=$(echo "$1" |awk '{if ($1 == "include"){print $2} else {exit 1}}')
 	if [ $? -eq 0 ]; then
 		if [[ $configinc == /* ]]; then
-		  ngx::ngx_config_writer $configinc "config1.tmp"
+		  ngx::ngx_config_writer $configinc "/tmp/config1.tmp"
         else
-		  ngx::ngx_config_writer "${NGINXINFO[conf-path]%/*}/$configinc" "config1.tmp"
+		  ngx::ngx_config_writer "${NGINXINFO[conf-path]%/*}/$configinc" "/tmp/config1.tmp"
 		fi
 	else
-		echo "$1" >> config1.tmp
+		echo "$1" >> /tmp/config1.tmp
 	fi
 }
 
 ngx::include_test() {
-	rm config1.tmp;
+	rm /tmp/config1.tmp;
 	while IFS= read -r line ; do ngx::finder "$line"; done <<< "$1"
 }
 
 ngx::directives() {
-  for i in `cat ./config.tmp | tr -d '\t\n{}' | tr ';' '\n' | grep -v '#' | awk '{print $1}'`; do
+  for i in `cat /tmp/config.tmp | tr -d '\t\n{}' | tr ';' '\n' | grep -v '#' | awk '{print $1}'`; do
     if [[ $i != *['!'*@#\$%^\&*()+\=\"]* ]]; then
       [[ ${CONFIGURATION[$i]+_} ]] && CONFIGURATION[$i]=$((${CONFIGURATION[$i]}+1)) || CONFIGURATION[$i]=1
     fi
@@ -192,6 +228,7 @@ ngx::cve() {
 		 VULNERABLE=$(echo $line |awk '{ split($0,a,";"); print a[2]}')
 		 GOOD=$(echo $line |awk '{ split($0,a,";"); print a[3] }' | tr -d '+')
 		 CVE=$(echo $line |awk '{ split($0,a,";"); print a[1] }')
+		 CVETEXT=$(echo $line |awk '{ split($0,a,";"); print a[4] }')
 
 		 if [ `echo $VULNERABLE"-"$NGXVERSION | tr '-' '\n' | sort -Vr | head -1` != $NGXVERSION ]; then
 		   if [ `echo $VULNERABLE"-"$NGXVERSION | tr '-' '\n' | sort -V | head -1` == $NGXVERSION ]; then
@@ -199,7 +236,7 @@ ngx::cve() {
 		   fi
            SKIP=0
 		   #checking the good values
-		   MESSAGE="CVE Found $CVE"
+		   MESSAGE="CVE $CVE, $CVETEXT"
 		   IFS=', ' read -r -a array <<< "$GOOD"
 
 		   for i in "${!array[@]}"
@@ -215,14 +252,14 @@ ngx::cve() {
 		 fi
 	done <<< $CVELIST
 	
-	if [[ $CVEFOUND -eq 0 ]] && [[ $RUNLEVEL -gt 9 ]]; then echo "   ** Nothing found **  "; fi
+	if [[ $CVEFOUND -eq 0 ]] && [[ $RUNLEVEL -gt 9 ]]; then echo "${COLGREEN}  - This configuration is not affected by any known vulnerabilities.${COLRES}"; fi
 }
 
 ngx::module_check() {
-  if [ -f "./module-config.tmp" ]; then
-	echo "$ALLMODULES" > allmodules.txt
+  if [ -f "/tmp//module-config.tmp" ]; then
+	echo "$ALLMODULES" > /tmp/allmodules.txt
 	while read m; do
-	if grep -Fqx "${m##*/}" allmodules.txt; then
+	if grep -Fqx "${m##*/}" /tmp/allmodules.txt; then
 		   [[ $RUNLEVEL == 99 ]] && echo ${COLGREEN}"Found $m"${COLRES}
 		   ((++FOUND))
 		else
@@ -230,14 +267,14 @@ ngx::module_check() {
 		     [[ $RUNLEVEL -gt 9 ]] && echo ${COLRED}"    - ${m##*/}"${COLRES}
 		     ((++MNFOUND))
 		fi
-	done < module-config.tmp | tr -d '"' | tr -d "'" | tr -d ";"
+	done < /tmp/module-config.tmp | tr -d '"' | tr -d "'" | tr -d ";"
   fi  
 }
 
 ngx::directive_check() {
-	 echo -e "$ALLDIRECTIVES" > alldirs.txt
+	 echo -e "$ALLDIRECTIVES" > /tmp/alldirs.txt
 	 for x in "${!CONFIGURATION[@]}"; do
-		if grep -Fxq "$x" alldirs.txt; then
+		if grep -Fxq "$x" /tmp/alldirs.txt; then
 			[[ $RUNLEVEL == 99 ]] && echo ${COLGREEN}"Found $x ${CONFIGURATION[$x]}x${COLRES}" ;((++FOUND))
 		else
 			if [[ $NFOUND -eq 0 ]] && [[ $RUNLEVEL -gt 9 ]]; then echo "  - Found unsupoported directives: "; fi
@@ -245,21 +282,6 @@ ngx::directive_check() {
 		fi
 	done
     if [[ $RUNLEVEL -gt 9 ]] && [[ $NFOUND -eq 0 ]]; then echo "${COLGREEN}  No unknown directives found. ${COLRES}"; fi
-}
-
-sys::net() {
-   if [[ $RUNLEVEL -eq 99 ]] && [[ $NGXRUNSTAT -ne 0 ]]; then
-	grep -v "rem_address" /proc/$NGXPID/net/tcp  | awk 'function hextodec(str,ret,n,i,k,c){
-		ret = 0
-		n = length(str)
-		for (i = 1; i <= n; i++) {
-			c = tolower(substr(str, i, 1))
-			k = index("123456789abcdef", c)
-			ret = ret * 16 + k
-		}
-		return ret
-	} {x=hextodec(substr($2,index($2,":")-2,2)); for (i=5; i>0; i-=2) x = x"."hextodec(substr($2,i,2))}{print x":"hextodec(substr($2,index($2,":")+1,4))}'
-  fi
 }
 
 main::exitcode() {
@@ -295,13 +317,14 @@ main::exitcode() {
      if [[ $RUNLEVEL -gt 9 ]]; then echo "${COLGREEN}  Congratulations! No warnings or errors found! You are good upgrading to NGINX Plus.${COLRES}"; fi
      ;;
    1)
-     if [[ $RUNLEVEL -gt 9 ]]; then echo "${COLYELLOW} There are warnings but you are good upgrading to NGINX Plus. Congratulations!"; fi
+     if [[ $CVEFOUND -ne 0 ]] && [[ $RUNLEVEL -gt 9 ]]; then echo "${COLYELLOW}   * It is recommended to upgrade to a more recent version of NGINX to address the known security vulnerabilities.${COLRES}"; fi
+     if [[ $RUNLEVEL -gt 9 ]]; then echo "${COLYELLOW}   * There are warnings but you are good upgrading to NGINX Plus. Congratulations!${COLRES}"; fi
    ;;
    2)
-    if [[ $RUNLEVEL -gt 9 ]]; then echo "${COLRED}  Do not upgrade${COLRES} to NGINX Plus without first discussing this project with your F5/NGINX representative"; fi
+    if [[ $RUNLEVEL -gt 9 ]]; then echo "${COLRED} * Do not upgrade${COLRES} to NGINX Plus without first discussing this project with your F5/NGINX representative"; fi
    ;;
    *)
-    if [[ $RUNLEVEL -gt 9 ]]; then echo "${COLRED}  An error occured!${COLRES} Please contact your F5/NGINX representative"; fi
+    if [[ $RUNLEVEL -gt 9 ]]; then echo "${COLRED} * An error ocurred! ${COLRES} Please contact your F5/NGINX representative"; fi
    ;;
   esac
 
@@ -320,6 +343,7 @@ main::run() {
 		echo "  NGINX Info Report"
 		echo "  ================="
 		echo "  - Version: "'`'"$NGINXIFOVERSION"'`'""
+		echo "  - Binary:  "'`'"$NGXBINARY"'`'""
 		echo "  - Source: https://github.com/tippexs/ngxinfo"
 		echo "  - Build date: $(date -d $BUILD +%Y-%m-%d)"
 		echo ""
@@ -333,17 +357,12 @@ main::run() {
 		echo ""
 		echo "  - NGINX version: $NGXVERSION"
 		echo "  - OpenSSL version: $OPENSSLVERSION"
+		ngx::provenance
+		echo "  - Provenance: $NGXPCKVENDOR"
 		echo ""
-		
 		echo "  Configuration"
 		echo "  -------------"
 		echo ""
-		sys::net
-		cat /proc/$NGXPID/cmdline &> /dev/null 2>&1
-	      if [ $? -ne 0 ]; then
-	        echo "${COLYELLOW}  NGINX is installed but not up and running. No network information available.${COLRES}";
-	        NGXRUNSTAT=0
-	      fi
 	fi
 
 	NGXPREF=$(echo ${NGINXINFO[prefix]} |sed 's/^[[:space:]]*//g')
@@ -351,14 +370,14 @@ main::run() {
 	#is NGINX up and running?
 	
 	#Kick-Off - Copy NGINX Main Config file to tmp-file
-	cat ${NGINXINFO[conf-path]} > config1.tmp
+	cat ${NGINXINFO[conf-path]} > /tmp/config1.tmp
 	#grep config-file search for include. if include present
 	while [ true ]
 	do
-	  egrep -i "^\s*include" config1.tmp &> /dev/null 2>&1
+	  egrep -i "^\s*include" /tmp/config1.tmp &> /dev/null 2>&1
 	  if [ $? -eq 0 ]
 	  then
-		ngx::include_test "$(cat config1.tmp)";
+		ngx::include_test "$(cat /tmp/config1.tmp)";
 	  else
 		break;
 	  fi
@@ -380,7 +399,8 @@ main::run() {
 }
 
 main::cleanup() {
-  rm -f config.tmp config1.tmp alldirs.txt allmodules.txt module-config.tmp
+  rm -f /tmp/config.tmp /tmp/config1.tmp /tmp/alldirs.txt /tmp/allmodules.txt /tmp/module-config.tmp
+  rm -rf /tmp/modules/
 }
 """
 
