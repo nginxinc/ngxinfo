@@ -84,7 +84,7 @@ COLRES=$(tput sgr0)
 
 NGXV=""
 NGINXIFOVERSION="nginxinfo v0.1 alpha"
-NGXVERSION=$(nginx -v 2>&1 |awk 'match($0, /[0-9]+(\.[0-9]+)+/, a) {print a[0]}')
+NGXVERSION=$(nginx -v 2>&1 |grep -Po '[0-9]+(\.[0-9]+)+')
 OPENSSLVERSION=$(openssl version)
 HOSTINFORMATION=$(cat /etc/os-release | tr '\n' '^' | tr -d '"')
 NGXMAINCMD=$(ps -axo pid,cmd | grep '[n]ginx: master process' | awk '{print $5}')
