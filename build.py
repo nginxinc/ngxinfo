@@ -340,7 +340,7 @@ main::run() {
 		echo "  ================="
 		echo "  - Version: "'`'"$NGINXIFOVERSION"'`'""
 		echo "  - Binary:  "'`'"$NGXBINARY"'`'""
-		echo "  - Source: https://github.com/tippexs/ngxinfo"
+		echo "  - Source: https://github.com/nginxinc/ngxinfo"
 		echo "  - Build date: $(date -d $BUILD +%Y-%m-%d)"
 		echo ""
 		if [[ $(( ($(date +%s)- $(date -d $BUILD +%s) ) / 86400 )) -gt 89 ]]; then
