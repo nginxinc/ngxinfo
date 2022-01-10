@@ -1,7 +1,5 @@
 ## NGINX Info
-
-https://user-images.githubusercontent.com/8117589/148737681-07bbb3cf-255b-474a-8431-1d8900e20f6e.mp4
-
+![ngxinfo](https://user-images.githubusercontent.com/8117589/148759796-25cd4d87-97d4-4056-b193-7c467f5817b3.gif)
 
 The `ngxinfo` tool **reports on the suitability of upgrading any NGINX deployment to NGINX Plus**. It does this by analyzing the current configuration for anything not supported by NGINX Plus. The report provides any potential incompatibilities so that they can be investigated and any CVEs affecting the deployed version.
 
@@ -13,13 +11,17 @@ This repo is a _builder_ to produce the `ngxinfo.sh` shell script. We build the 
  * Does not require any 3rd party components other than standard POSIX tools
  * Can be run by any unprivileged user (non-root) that can read the nginx.conf file
 
-To build the shell script clone this repository and create a virtual-environment
-`python3 -m venv nginxinfo` and activate `source nginxinfo/bin/activate`.
+To build the shell script clone this repository and run the build script.
 
 ### Install the dependencies for the build process
 ```shell
 python3 -m pip install -r requirements.txt
 ```
+
+If you would like to keep the dependencies isolated from your global python environment create and activate a virtual environment. This step is <b>NOT</b> mandatory. 
+
+`python3 -m venv nginxinfo`
+`source nginxinfo/bin/activate`
 
 ### Build the shell script
 ```shell
