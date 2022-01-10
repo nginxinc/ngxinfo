@@ -1,5 +1,8 @@
 ## NGINX Info
 
+https://user-images.githubusercontent.com/8117589/148737681-07bbb3cf-255b-474a-8431-1d8900e20f6e.mp4
+
+
 The `ngxinfo` tool **reports on the suitability of upgrading any NGINX deployment to NGINX Plus**. It does this by analyzing the current configuration for anything not supported by NGINX Plus. The report provides any potential incompatibilities so that they can be investigated and any CVEs affecting the deployed version.
 
 ## Building ngxinfo
